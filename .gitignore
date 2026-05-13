@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+
+results/
+archive_unused/
+
+*.log
+*.tmp
+*.temp
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
