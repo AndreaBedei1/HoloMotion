@@ -13,16 +13,21 @@ HoloOcean Pose ground truth.
 
 Step 1.1 runs Step 1 in batches over multiple target distances and repetitions.
 
-Step 2 is implemented. It runs the same forward-distance navigation under
-controlled ocean-current disturbances and records drift, position error, DVL
-distance, Pose displacement, timing, and stop-reason metrics.
+Step 2A is implemented. It runs the same forward-distance navigation under
+controlled ocean-current disturbances without compensation and records drift,
+position error, DVL distance, Pose displacement, timing, and stop-reason metrics.
 
-No altitude control, PID, EKF, A-to-B navigation, obstacle avoidance, perception,
-or current compensation is implemented yet.
+Step 2B is implemented. It adds a simple proportional DVL body-frame velocity
+tracking controller. The controller tracks desired forward and lateral DVL
+velocities; it does not blindly cancel lateral motion and it does not use the
+known HoloOcean current vector.
+
+No altitude control, full PID, EKF, A-to-B navigation, obstacle avoidance, or
+perception is implemented yet.
 
 ## Sensor Policy
 
-- DVL is allowed for estimation and stopping/control in Step 1 and Step 2.
+- DVL is allowed for estimation and stopping/control in Step 1, Step 2A, and Step 2B.
 - Pose is ground truth only and is used for validation and metrics.
 - Velocity is ground truth only and is used for validation and metrics.
 - IMU is available for future estimation/control work.
@@ -62,12 +67,16 @@ examples/
   step_01_batch_forward_distance.py
   step_02_current_forward_distance_live.py
   step_02_batch_current_distance_grid.py
+  step_02b_dvl_velocity_compensation_live.py
+  step_02b_compare_compensation.py
 results/
   step_00_water_visibility_check/<timestamp>/
   step_01_forward_distance/<timestamp>/
   step_01_forward_distance_batch/<timestamp>/
   step_02_current_forward_distance/<timestamp>/
   step_02_current_distance_grid/<timestamp>/
+  step_02b_dvl_velocity_compensation/<timestamp>/
+  step_02b_compensation_comparison/<timestamp>/
 ```
 
 The `results/` directory contains generated experiment outputs and is ignored by
@@ -114,21 +123,21 @@ Headless Step 1 live:
 conda run -n ocean python examples/step_01_forward_distance_live.py --target-distance 5 --headless
 ```
 
-## Step 2 Commands
+## Step 2A Commands
 
-Step 2 live:
+Step 2A live without compensation:
 
 ```bash
 conda run -n ocean python examples/step_02_current_forward_distance_live.py --target-distance 5 --current-y 1.0
 ```
 
-Step 2 batch grid:
+Step 2A batch grid without compensation:
 
 ```bash
 conda run -n ocean python examples/step_02_batch_current_distance_grid.py --target-distances 5 10 20 --current-y-values 0.0 0.25 0.5 1.0 2.0 --repetitions 3
 ```
 
-Headless Step 2 batch:
+Headless Step 2A batch:
 
 ```bash
 conda run -n ocean python examples/step_02_batch_current_distance_grid.py --target-distances 5 10 20 --current-y-values 0.0 0.25 0.5 1.0 2.0 --repetitions 3 --headless
@@ -143,6 +152,27 @@ timestamped batch directory. Completed runs with `summary.json` are skipped:
 
 ```bash
 conda run -n ocean python examples/step_02_batch_current_distance_grid.py --resume-dir results/step_02_current_distance_grid/<timestamp> --target-distances 5 10 20 --current-y-values 0.0 0.25 0.5 1.0 2.0 --repetitions 3
+```
+
+## Step 2B Commands
+
+Step 2B live with DVL velocity tracking compensation:
+
+```bash
+conda run -n ocean python examples/step_02b_dvl_velocity_compensation_live.py --target-distance 5 --current-y 1.0
+```
+
+Step 2B intentional lateral motion. This tracks a nonzero lateral body-frame
+velocity; it is not a drift-cancel-only mode:
+
+```bash
+conda run -n ocean python examples/step_02b_dvl_velocity_compensation_live.py --target-distance 5 --current-y 1.0 --desired-lateral-velocity 0.2
+```
+
+Step 2B comparison against Step 2A:
+
+```bash
+conda run -n ocean python examples/step_02b_compare_compensation.py --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3
 ```
 
 ## Outputs
@@ -165,7 +195,7 @@ Each Step 1.1 batch run writes:
 - `duration_vs_target.png`
 - one subfolder per individual run
 
-Each Step 2 live run writes:
+Each Step 2A live run writes:
 
 - `trajectory.csv`
 - `summary.json`
@@ -175,7 +205,7 @@ Each Step 2 live run writes:
 - `lateral_drift_plot.png`
 - `speed_plot.png`
 
-Each Step 2 batch-grid run writes:
+Each Step 2A batch-grid run writes:
 
 - `all_runs_summary.csv`
 - `aggregate_summary.json`
@@ -187,6 +217,27 @@ Each Step 2 batch-grid run writes:
 - `forward_vs_euclidean_distance.png`
 - one subfolder per individual run
 
+Each Step 2B live run writes:
+
+- `trajectory.csv`
+- `summary.json`
+- `run_config.yaml`
+- `distance_plot.png`
+- `trajectory_plot.png`
+- `lateral_drift_plot.png`
+- `velocity_tracking_plot.png`
+- `command_plot.png`
+
+Each Step 2B comparison run writes:
+
+- `all_runs_summary.csv`
+- `aggregate_summary.json`
+- `lateral_drift_comparison.png`
+- `final_position_error_comparison.png`
+- `duration_comparison.png`
+- `velocity_error_summary.png`
+- one subfolder per individual run
+
 ## Notes
 
 - HoloOcean world coordinates and Pose displacements are treated as meters.
@@ -195,3 +246,5 @@ Each Step 2 batch-grid run writes:
 - Ocean current is applied before every simulation step because the local
   HoloOcean 2.2.2 API documents current as an enqueued command and does not
   state that one call persists.
+- Step 2B uses the current vector only to disturb the simulator. The controller
+  receives DVL velocities and desired body-frame velocities only.
