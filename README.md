@@ -68,7 +68,10 @@ examples/
   step_02_current_forward_distance_live.py
   step_02_batch_current_distance_grid.py
   step_02b_dvl_velocity_compensation_live.py
+  step_02b_lateral_axis_check.py
   step_02b_compare_compensation.py
+tests/
+  run_unit_checks.py
 results/
   step_00_water_visibility_check/<timestamp>/
   step_01_forward_distance/<timestamp>/
@@ -76,6 +79,7 @@ results/
   step_02_current_forward_distance/<timestamp>/
   step_02_current_distance_grid/<timestamp>/
   step_02b_dvl_velocity_compensation/<timestamp>/
+  step_02b_lateral_axis_check/<timestamp>/
   step_02b_compensation_comparison/<timestamp>/
 ```
 
@@ -90,6 +94,29 @@ git by default.
 - `matplotlib`
 
 The existing local environment is named `ocean`.
+
+To recreate the environment from the minimal project file:
+
+```bash
+conda env create -f environment.yml
+```
+
+HoloOcean also requires the matching Ocean package assets to be installed for
+live simulator runs.
+
+## Validation Commands
+
+Compile all source, examples, and lightweight tests:
+
+```bash
+conda run -n ocean python -m compileall src examples tests
+```
+
+Run non-HoloOcean unit checks:
+
+```bash
+conda run -n ocean python tests/run_unit_checks.py
+```
 
 ## Step 0 Water Visibility Check
 
@@ -169,6 +196,13 @@ velocity; it is not a drift-cancel-only mode:
 conda run -n ocean python examples/step_02b_dvl_velocity_compensation_live.py --target-distance 5 --current-y 1.0 --desired-lateral-velocity 0.2
 ```
 
+Step 2B lateral axis diagnostic. Run this before relying on the default
+`--dvl-lateral-sign` in a full comparison:
+
+```bash
+conda run -n ocean python examples/step_02b_lateral_axis_check.py --headless
+```
+
 Step 2B comparison against Step 2A:
 
 ```bash
@@ -228,6 +262,12 @@ Each Step 2B live run writes:
 - `velocity_tracking_plot.png`
 - `command_plot.png`
 
+Each Step 2B lateral axis diagnostic writes:
+
+- `trajectory.csv`
+- `summary.json`
+- `run_config.yaml`
+
 Each Step 2B comparison run writes:
 
 - `all_runs_summary.csv`
@@ -248,3 +288,8 @@ Each Step 2B comparison run writes:
   state that one call persists.
 - Step 2B uses the current vector only to disturb the simulator. The controller
   receives DVL velocities and desired body-frame velocities only.
+- Step 2B clips forward and lateral command components separately, then clips
+  the final 8-thruster command vector with `--max-thruster-command`.
+- Positive Step 2B lateral command currently uses the same horizontal thruster
+  pattern as keyboard left strafe: `[+, -, +, -]` on thrusters 4..7. Validate
+  the DVL lateral sign with `step_02b_lateral_axis_check.py` before long runs.

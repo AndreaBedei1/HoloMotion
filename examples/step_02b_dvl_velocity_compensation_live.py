@@ -16,6 +16,7 @@ from experiments.dvl_velocity_compensation import (
     DEFAULT_FORWARD_KP,
     DEFAULT_LATERAL_KP,
     DEFAULT_MAX_COMMAND,
+    DEFAULT_MAX_THRUSTER_COMMAND,
     run_dvl_velocity_compensation_experiment,
 )
 from lib.worlds import World
@@ -51,6 +52,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kp-lateral", type=float, default=DEFAULT_LATERAL_KP)
     parser.add_argument("--max-forward-command", type=float, default=DEFAULT_MAX_COMMAND)
     parser.add_argument("--max-lateral-command", type=float, default=DEFAULT_MAX_COMMAND)
+    parser.add_argument(
+        "--max-thruster-command",
+        type=float,
+        default=DEFAULT_MAX_THRUSTER_COMMAND,
+        help="Final absolute limit applied to each of the 8 thruster commands after mixing.",
+    )
     parser.add_argument("--base-vertical-command", type=float, default=0.0)
     parser.add_argument("--max-duration", type=float, default=60.0)
     parser.add_argument("--dvl-forward-index", type=int, default=0)

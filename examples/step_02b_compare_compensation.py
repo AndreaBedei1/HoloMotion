@@ -22,6 +22,7 @@ from experiments.dvl_velocity_compensation import (
     DEFAULT_FORWARD_KP,
     DEFAULT_LATERAL_KP,
     DEFAULT_MAX_COMMAND,
+    DEFAULT_MAX_THRUSTER_COMMAND,
     run_dvl_velocity_compensation_experiment,
 )
 from experiments.forward_distance import DEFAULT_FORWARD_COMMAND, run_forward_distance_experiment
@@ -97,6 +98,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kp-lateral", type=float, default=DEFAULT_LATERAL_KP)
     parser.add_argument("--max-forward-command", type=float, default=DEFAULT_MAX_COMMAND)
     parser.add_argument("--max-lateral-command", type=float, default=DEFAULT_MAX_COMMAND)
+    parser.add_argument(
+        "--max-thruster-command",
+        type=float,
+        default=DEFAULT_MAX_THRUSTER_COMMAND,
+        help="Final absolute limit applied to each Step 2B thruster command after mixing.",
+    )
     parser.add_argument("--base-vertical-command", type=float, default=0.0)
     parser.add_argument("--max-duration", type=float, default=60.0)
     parser.add_argument("--dvl-forward-index", type=int, default=0)
@@ -195,6 +202,7 @@ def run_comparison(args: argparse.Namespace) -> None:
                     kp_lateral=args.kp_lateral,
                     max_forward_command=args.max_forward_command,
                     max_lateral_command=args.max_lateral_command,
+                    max_thruster_command=args.max_thruster_command,
                     base_vertical_command=args.base_vertical_command,
                     ticks_per_sec=args.ticks_per_sec,
                     max_duration=args.max_duration,
@@ -271,6 +279,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("max-duration must be positive.")
     if args.ticks_per_sec <= 0:
         raise ValueError("ticks-per-sec must be positive.")
+    if args.max_forward_command < 0 or args.max_lateral_command < 0:
+        raise ValueError("max command values must be non-negative.")
+    if args.max_thruster_command < 0:
+        raise ValueError("max-thruster-command must be non-negative.")
 
 
 def make_run_id(target_distance: float, current_y: float, repetition_index: int) -> str:

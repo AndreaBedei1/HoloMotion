@@ -12,6 +12,7 @@ from experiments.dvl_velocity_compensation import (
     DEFAULT_FORWARD_KP,
     DEFAULT_LATERAL_KP,
     DEFAULT_MAX_COMMAND,
+    DEFAULT_MAX_THRUSTER_COMMAND,
     DEFAULT_VELOCITY_KP,
     run_dvl_velocity_compensation_experiment,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "DEFAULT_FORWARD_KP",
     "DEFAULT_LATERAL_KP",
     "DEFAULT_MAX_COMMAND",
+    "DEFAULT_MAX_THRUSTER_COMMAND",
     "DEFAULT_VELOCITY_KP",
     "DIAGNOSTIC_FORWARD_COMMAND",
     "DISTANCE_WARNING_RATIO",

@@ -57,6 +57,7 @@ DEFAULT_FORWARD_KP = 20.0
 DEFAULT_LATERAL_KP = 12.0
 DEFAULT_VELOCITY_KP = DEFAULT_FORWARD_KP
 DEFAULT_MAX_COMMAND = 2.0
+DEFAULT_MAX_THRUSTER_COMMAND = 2.0
 
 
 def run_dvl_velocity_compensation_experiment(
@@ -92,6 +93,7 @@ def run_dvl_velocity_compensation_experiment(
         kp_lateral=args.kp_lateral,
         max_forward_command=args.max_forward_command,
         max_lateral_command=args.max_lateral_command,
+        max_thruster_command=args.max_thruster_command,
         base_vertical_command=args.base_vertical_command,
     )
     estimator = DVLDistanceEstimator(
@@ -121,6 +123,7 @@ def run_dvl_velocity_compensation_experiment(
         "kp_lateral": float(args.kp_lateral),
         "max_forward_command": float(args.max_forward_command),
         "max_lateral_command": float(args.max_lateral_command),
+        "max_thruster_command": float(args.max_thruster_command),
         "base_vertical_command": float(args.base_vertical_command),
         "ticks_per_sec": int(args.ticks_per_sec),
         "max_duration_s": float(args.max_duration),
@@ -292,6 +295,8 @@ def run_dvl_velocity_compensation_experiment(
             "kp_lateral": float(args.kp_lateral),
             "max_forward_command": float(args.max_forward_command),
             "max_lateral_command": float(args.max_lateral_command),
+            "max_thruster_command": float(args.max_thruster_command),
+            "final_clipping_applied": bool(controller.final_clipping_applied),
             "dvl_forward_index": int(args.dvl_forward_index),
             "dvl_forward_sign": float(args.dvl_forward_sign),
             "dvl_lateral_index": int(args.dvl_lateral_index),
@@ -359,6 +364,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("controller gains must be non-negative.")
     if args.max_forward_command < 0 or args.max_lateral_command < 0:
         raise ValueError("max command values must be non-negative.")
+    if args.max_thruster_command < 0:
+        raise ValueError("max-thruster-command must be non-negative.")
     if args.speed_warning_threshold <= 0:
         raise ValueError("speed-warning-threshold must be positive.")
     if args.max_dvl_speed_warning_threshold <= 0:
@@ -448,18 +455,24 @@ def dvl_velocity_components(
 
 
 def build_velocity_tracking_metrics(samples: list[dict]) -> dict:
-    forward_errors = [float(sample["forward_velocity_error"]) for sample in samples]
-    lateral_errors = [float(sample["lateral_velocity_error"]) for sample in samples]
+    active_samples = samples[1:] if len(samples) > 1 else samples
+    forward_errors = [
+        float(sample["forward_velocity_error"]) for sample in active_samples
+    ]
+    lateral_errors = [
+        float(sample["lateral_velocity_error"]) for sample in active_samples
+    ]
     command_efforts = [
         float(
             np.linalg.norm(
                 np.asarray([sample[f"cmd_{index}"] for index in range(8)], dtype=float)
             )
         )
-        for sample in samples
+        for sample in active_samples
     ]
 
     return {
+        "velocity_tracking_metric_sample_count": len(active_samples),
         "mean_forward_velocity_error": mean_value(forward_errors),
         "std_forward_velocity_error": std_value(forward_errors),
         "mean_lateral_velocity_error": mean_value(lateral_errors),

@@ -9,6 +9,7 @@ def bluerov2_horizontal_command(
     forward_command: float,
     lateral_command: float,
     base_vertical_command: float = 0.0,
+    max_thruster_command: float | None = None,
 ) -> np.ndarray:
     """Build a BlueROV2 control-scheme-0 command from body-frame motions.
 
@@ -24,6 +25,12 @@ def bluerov2_horizontal_command(
     command[5] = float(forward_command - lateral_command)
     command[6] = float(forward_command + lateral_command)
     command[7] = float(forward_command - lateral_command)
+    if max_thruster_command is not None:
+        command = np.clip(
+            command,
+            -float(max_thruster_command),
+            float(max_thruster_command),
+        )
     return command
 
 
@@ -35,6 +42,7 @@ class DVLVelocityTrackingController:
     kp_lateral: float = 12.0
     max_forward_command: float = 2.0
     max_lateral_command: float = 2.0
+    max_thruster_command: float = 2.0
     base_vertical_command: float = 0.0
 
     def __post_init__(self) -> None:
@@ -46,6 +54,10 @@ class DVLVelocityTrackingController:
             raise ValueError("max_forward_command must be non-negative.")
         if self.max_lateral_command < 0:
             raise ValueError("max_lateral_command must be non-negative.")
+        if self.max_thruster_command < 0:
+            raise ValueError("max_thruster_command must be non-negative.")
+        self.final_clipping_applied = False
+        self.last_final_clipping_applied = False
 
     def command(
         self,
@@ -66,11 +78,23 @@ class DVLVelocityTrackingController:
             -self.max_lateral_command,
             self.max_lateral_command,
         )
-        return bluerov2_horizontal_command(
+        mixed_command = bluerov2_horizontal_command(
             forward_command=float(forward_command),
             lateral_command=float(lateral_command),
             base_vertical_command=self.base_vertical_command,
         )
+        clipped_command = np.clip(
+            mixed_command,
+            -self.max_thruster_command,
+            self.max_thruster_command,
+        )
+        self.last_final_clipping_applied = bool(
+            not np.allclose(mixed_command, clipped_command)
+        )
+        self.final_clipping_applied = (
+            self.final_clipping_applied or self.last_final_clipping_applied
+        )
+        return clipped_command
 
     def stop_command(self) -> np.ndarray:
         return np.zeros(8, dtype=float)

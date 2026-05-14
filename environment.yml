@@ -1,6 +1,11 @@
 name: ocean
 channels:
+  - conda-forge
   - defaults
 dependencies:
   - python=3.9
-prefix: /home/andreabedei/miniconda3/envs/ocean
+  - numpy
+  - matplotlib
+  - pip
+  - pip:
+      - holoocean==2.2.2
