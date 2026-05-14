@@ -23,7 +23,7 @@ for path in (SRC_DIR, EXAMPLES_DIR):
         sys.path.insert(0, str(path))
 
 from lib.worlds import World
-from step_01_forward_distance_live import (
+from experiments.forward_distance import (
     DEFAULT_FORWARD_COMMAND,
     run_forward_distance_experiment,
 )

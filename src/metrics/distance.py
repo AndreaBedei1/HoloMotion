@@ -12,10 +12,13 @@ class DistanceMetrics:
     dvl_estimated_distance_m: float
     pose_forward_displacement_m: float
     pose_ground_truth_displacement_m: float
+    longitudinal_error_m: float
+    absolute_longitudinal_error_m: float
     signed_error_m: float
     absolute_distance_error_m: float
     percentage_error: float
     lateral_drift_m: float
+    final_position_error_m: float
     duration_s: float
     num_samples: int
     stop_reason: str
@@ -47,6 +50,9 @@ def compute_distance_metrics(
     lateral_drift = float(np.dot(displacement, initial_right))
     pose_ground_truth_displacement = float(np.linalg.norm(displacement))
     estimated_distance = float(last["dvl_distance_estimated"])
+    target_position = start_position + float(target_distance_m) * initial_forward
+    final_position_error = float(np.linalg.norm(end_position - target_position))
+    longitudinal_error = pose_forward_displacement - float(target_distance_m)
 
     signed_error = estimated_distance - pose_forward_displacement
     absolute_error = abs(signed_error)
@@ -62,10 +68,13 @@ def compute_distance_metrics(
         dvl_estimated_distance_m=estimated_distance,
         pose_forward_displacement_m=pose_forward_displacement,
         pose_ground_truth_displacement_m=pose_ground_truth_displacement,
+        longitudinal_error_m=float(longitudinal_error),
+        absolute_longitudinal_error_m=float(abs(longitudinal_error)),
         signed_error_m=float(signed_error),
         absolute_distance_error_m=float(absolute_error),
         percentage_error=float(percentage_error),
         lateral_drift_m=lateral_drift,
+        final_position_error_m=final_position_error,
         duration_s=float(last["time"] - first["time"]),
         num_samples=len(samples),
         stop_reason=stop_reason,

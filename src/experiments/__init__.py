@@ -1,24 +1,11 @@
-from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
 from experiments.forward_distance import (
     DEFAULT_FORWARD_COMMAND,
     DIAGNOSTIC_FORWARD_COMMAND,
     DISTANCE_WARNING_RATIO,
     OLD_FORWARD_COMMAND_DEFAULT,
     apply_cli_defaults,
-    main,
     run_forward_distance_experiment,
 )
-
 
 __all__ = [
     "DEFAULT_FORWARD_COMMAND",
@@ -28,7 +15,3 @@ __all__ = [
     "apply_cli_defaults",
     "run_forward_distance_experiment",
 ]
-
-
-if __name__ == "__main__":
-    main()

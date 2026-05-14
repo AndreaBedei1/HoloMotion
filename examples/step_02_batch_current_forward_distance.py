@@ -23,7 +23,7 @@ for path in (SRC_DIR, EXAMPLES_DIR):
         sys.path.insert(0, str(path))
 
 from lib.worlds import World
-from step_01_forward_distance_live import DEFAULT_FORWARD_COMMAND, run_forward_distance_experiment
+from experiments.forward_distance import DEFAULT_FORWARD_COMMAND, run_forward_distance_experiment
 from step_02_strong_current_forward_distance_live import CURRENT_WARNING_THRESHOLD_MPS
 
 
@@ -144,6 +144,7 @@ def run_batch(args: argparse.Namespace) -> None:
                 diagnostic_distance_check=False,
                 make_current_plots=True,
                 current_api_method="env.set_ocean_currents(agent_name, velocity)",
+                scenario_name="Step02_Current_Batch",
                 experiment_label="Step 2.1 current batch",
                 summary_title="Step 2.1 current batch run summary",
                 world=args.world,
