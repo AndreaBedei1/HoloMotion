@@ -209,6 +209,14 @@ Step 2B comparison against Step 2A:
 conda run -n ocean python examples/step_02b_compare_compensation.py --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3
 ```
 
+Resume an interrupted Step 2B comparison by pointing `--resume-dir` at the
+existing timestamped comparison directory. Completed mode runs with
+`summary.json` are skipped, and partial aggregate files are regenerated:
+
+```bash
+conda run -n ocean python examples/step_02b_compare_compensation.py --resume-dir results/step_02b_compensation_comparison/<timestamp> --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3 --headless
+```
+
 ## Outputs
 
 Each Step 1 live run writes:

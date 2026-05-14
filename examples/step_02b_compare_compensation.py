@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -126,6 +127,30 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=PROJECT_ROOT / "results" / "step_02b_compensation_comparison",
     )
+    parser.add_argument(
+        "--resume-dir",
+        type=Path,
+        default=None,
+        help="Resume an existing timestamped comparison directory and skip completed mode runs.",
+    )
+    parser.add_argument(
+        "--retry-count",
+        type=int,
+        default=2,
+        help="Number of retries for a failed HoloOcean run before aborting.",
+    )
+    parser.add_argument(
+        "--retry-delay",
+        type=float,
+        default=5.0,
+        help="Seconds to wait before retrying a failed HoloOcean run.",
+    )
+    parser.add_argument(
+        "--run-settle-delay",
+        type=float,
+        default=1.0,
+        help="Seconds to wait between mode runs so the simulator can release resources.",
+    )
     parser.set_defaults(show_viewport=True)
     return parser.parse_args()
 
@@ -133,128 +158,114 @@ def parse_args() -> argparse.Namespace:
 def run_comparison(args: argparse.Namespace) -> None:
     validate_args(args)
 
-    batch_dir = args.results_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
+    batch_dir = args.resume_dir if args.resume_dir is not None else (
+        args.results_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
     batch_dir.mkdir(parents=True, exist_ok=True)
     print(f"Saving Step 2B compensation comparison outputs to: {batch_dir}")
     print(f"Viewport enabled: {args.show_viewport}")
+    if args.resume_dir is not None:
+        print("Resume mode: completed mode runs with summary.json will be skipped.")
 
-    rows: list[dict] = []
-    total_pairs = len(args.target_distances) * len(args.current_y_values) * args.repetitions
+    expected_pairs = build_expected_pairs(args)
+    rows = load_completed_rows(batch_dir, expected_pairs, args)
+    completed_mode_runs = {(row["run_id"], row["mode"]) for row in rows}
+    if rows:
+        print(f"Loaded completed mode runs: {len(rows)}")
+        write_comparison_outputs(
+            args,
+            batch_dir,
+            rows,
+            expected_mode_run_count=len(expected_pairs) * 2,
+            write_plots=False,
+        )
+
+    total_pairs = len(expected_pairs)
     pair_number = 0
 
-    for target_distance in args.target_distances:
-        for current_y in args.current_y_values:
-            for repetition_index in range(1, args.repetitions + 1):
-                pair_number += 1
-                base_run_id = make_run_id(target_distance, current_y, repetition_index)
-                print(
-                    f"[{pair_number}/{total_pairs}] target={target_distance:g} m, "
-                    f"current_y={current_y:g} m/s, repetition={repetition_index}"
-                )
+    for expected_pair in expected_pairs:
+        pair_number += 1
+        target_distance = expected_pair["target_distance"]
+        current_y = expected_pair["current_y"]
+        repetition_index = expected_pair["repetition_index"]
+        base_run_id = expected_pair["run_id"]
+        print(
+            f"[{pair_number}/{total_pairs}] target={target_distance:g} m, "
+            f"current_y={current_y:g} m/s, repetition={repetition_index}"
+        )
 
-                no_comp_args = argparse.Namespace(
+        no_comp_key = (base_run_id, "no_compensation")
+        if no_comp_key in completed_mode_runs:
+            print(f"  skipping completed mode={no_comp_key[1]}, run_id={base_run_id}")
+        else:
+            no_comp_args = build_no_compensation_args(args, target_distance, current_y)
+            no_comp_summary = run_experiment_with_retries(
+                args=args,
+                run_label=f"{base_run_id}_no_compensation",
+                runner=run_forward_distance_experiment,
+                run_args=no_comp_args,
+                output_dir=batch_dir / f"{base_run_id}_no_compensation",
+            )
+            rows.append(
+                summary_to_row(
+                    no_comp_summary,
+                    run_id=base_run_id,
+                    mode="no_compensation",
                     target_distance=target_distance,
-                    forward_command=args.forward_command,
-                    current_x=args.current_x,
-                    current_y=current_y,
-                    current_z=args.current_z,
-                    ticks_per_sec=args.ticks_per_sec,
-                    max_duration=args.max_duration,
-                    warmup_ticks=args.warmup_ticks,
-                    dvl_forward_index=args.dvl_forward_index,
-                    dvl_forward_sign=args.dvl_forward_sign,
-                    speed_warning_threshold=args.speed_warning_threshold,
-                    max_dvl_speed_warning_threshold=args.max_dvl_speed_warning_threshold,
-                    diagnostic_distance_check=False,
-                    make_current_plots=True,
-                    current_api_method="env.set_ocean_currents(agent_name, velocity)",
-                    scenario_name="Step02B_Comparison_No_Compensation",
-                    experiment_label="Step 2B comparison no-compensation",
-                    summary_title="Step 2B comparison no-compensation summary",
-                    world=args.world,
-                    results_dir=args.results_dir,
-                    show_viewport=args.show_viewport,
+                    repetition_index=repetition_index,
+                    args=args,
                 )
-                no_comp_summary = run_forward_distance_experiment(
-                    no_comp_args,
-                    output_dir=batch_dir / f"{base_run_id}_no_compensation",
-                    print_terminal_summary=False,
-                )
-                rows.append(
-                    summary_to_row(
-                        no_comp_summary,
-                        run_id=base_run_id,
-                        mode="no_compensation",
-                        target_distance=target_distance,
-                        repetition_index=repetition_index,
-                        args=args,
-                    )
-                )
+            )
+            completed_mode_runs.add(no_comp_key)
+            write_comparison_outputs(
+                args,
+                batch_dir,
+                rows,
+                expected_mode_run_count=len(expected_pairs) * 2,
+                write_plots=False,
+            )
+            sleep_between_runs(args)
 
-                comp_args = argparse.Namespace(
-                    target_distance=target_distance,
-                    desired_forward_velocity=args.desired_forward_velocity,
-                    desired_lateral_velocity=args.desired_lateral_velocity,
-                    current_x=args.current_x,
-                    current_y=current_y,
-                    current_z=args.current_z,
-                    kp_forward=args.kp_forward,
-                    kp_lateral=args.kp_lateral,
-                    max_forward_command=args.max_forward_command,
-                    max_lateral_command=args.max_lateral_command,
-                    max_thruster_command=args.max_thruster_command,
-                    base_vertical_command=args.base_vertical_command,
-                    ticks_per_sec=args.ticks_per_sec,
-                    max_duration=args.max_duration,
-                    warmup_ticks=args.warmup_ticks,
-                    dvl_forward_index=args.dvl_forward_index,
-                    dvl_forward_sign=args.dvl_forward_sign,
-                    dvl_lateral_index=args.dvl_lateral_index,
-                    dvl_lateral_sign=args.dvl_lateral_sign,
-                    speed_warning_threshold=args.speed_warning_threshold,
-                    max_dvl_speed_warning_threshold=args.max_dvl_speed_warning_threshold,
-                    world=args.world,
-                    results_dir=args.results_dir,
-                    show_viewport=args.show_viewport,
-                )
-                comp_summary = run_dvl_velocity_compensation_experiment(
-                    comp_args,
-                    output_dir=batch_dir / f"{base_run_id}_dvl_velocity_compensation",
-                    print_terminal_summary=False,
-                )
-                rows.append(
-                    summary_to_row(
-                        comp_summary,
-                        run_id=base_run_id,
-                        mode="dvl_velocity_compensation",
-                        target_distance=target_distance,
-                        repetition_index=repetition_index,
-                        args=args,
-                    )
-                )
+        comp_key = (base_run_id, "dvl_velocity_compensation")
+        if comp_key in completed_mode_runs:
+            print(f"  skipping completed mode={comp_key[1]}, run_id={base_run_id}")
+            continue
 
-    write_all_runs_csv(batch_dir / "all_runs_summary.csv", rows)
-    aggregate_summary = build_aggregate_summary(args, batch_dir, rows)
-    write_json(batch_dir / "aggregate_summary.json", aggregate_summary)
-    plot_mode_metric_comparison(
+        comp_args = build_compensation_args(args, target_distance, current_y)
+        comp_summary = run_experiment_with_retries(
+            args=args,
+            run_label=f"{base_run_id}_dvl_velocity_compensation",
+            runner=run_dvl_velocity_compensation_experiment,
+            run_args=comp_args,
+            output_dir=batch_dir / f"{base_run_id}_dvl_velocity_compensation",
+        )
+        rows.append(
+            summary_to_row(
+                comp_summary,
+                run_id=base_run_id,
+                mode="dvl_velocity_compensation",
+                target_distance=target_distance,
+                repetition_index=repetition_index,
+                args=args,
+            )
+        )
+        completed_mode_runs.add(comp_key)
+        write_comparison_outputs(
+            args,
+            batch_dir,
+            rows,
+            expected_mode_run_count=len(expected_pairs) * 2,
+            write_plots=False,
+        )
+        sleep_between_runs(args)
+
+    aggregate_summary = write_comparison_outputs(
+        args,
+        batch_dir,
         rows,
-        "lateral_drift",
-        "Lateral drift [m]",
-        batch_dir / "lateral_drift_comparison.png",
+        expected_mode_run_count=len(expected_pairs) * 2,
+        write_plots=True,
     )
-    plot_mode_metric_comparison(
-        rows,
-        "final_position_error",
-        "Final position error [m]",
-        batch_dir / "final_position_error_comparison.png",
-    )
-    plot_mode_metric_comparison(
-        rows,
-        "duration",
-        "Duration [s]",
-        batch_dir / "duration_comparison.png",
-    )
-    plot_velocity_error_summary(rows, batch_dir / "velocity_error_summary.png")
 
     print("\nStep 2B compensation comparison summary")
     print(f"Total runs: {len(rows)}")
@@ -275,14 +286,168 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("At least one current-y value is required.")
     if args.repetitions <= 0:
         raise ValueError("repetitions must be positive.")
+    if args.forward_command < 0:
+        raise ValueError("forward-command must be zero or positive.")
     if args.max_duration <= 0:
         raise ValueError("max-duration must be positive.")
     if args.ticks_per_sec <= 0:
         raise ValueError("ticks-per-sec must be positive.")
+    if args.warmup_ticks < 0:
+        raise ValueError("warmup-ticks must be zero or positive.")
     if args.max_forward_command < 0 or args.max_lateral_command < 0:
         raise ValueError("max command values must be non-negative.")
     if args.max_thruster_command < 0:
         raise ValueError("max-thruster-command must be non-negative.")
+    if args.retry_count < 0:
+        raise ValueError("retry-count must be zero or positive.")
+    if args.retry_delay < 0:
+        raise ValueError("retry-delay must be zero or positive.")
+    if args.run_settle_delay < 0:
+        raise ValueError("run-settle-delay must be zero or positive.")
+
+
+def build_expected_pairs(args: argparse.Namespace) -> list[dict]:
+    expected_pairs = []
+    for target_distance in args.target_distances:
+        for current_y in args.current_y_values:
+            for repetition_index in range(1, args.repetitions + 1):
+                expected_pairs.append(
+                    {
+                        "run_id": make_run_id(
+                            target_distance,
+                            current_y,
+                            repetition_index,
+                        ),
+                        "target_distance": float(target_distance),
+                        "current_y": float(current_y),
+                        "repetition_index": int(repetition_index),
+                    }
+                )
+    return expected_pairs
+
+
+def load_completed_rows(
+    batch_dir: Path,
+    expected_pairs: list[dict],
+    args: argparse.Namespace,
+) -> list[dict]:
+    rows = []
+    for expected_pair in expected_pairs:
+        for mode in ("no_compensation", "dvl_velocity_compensation"):
+            run_id = expected_pair["run_id"]
+            summary_path = batch_dir / f"{run_id}_{mode}" / "summary.json"
+            if not summary_path.exists():
+                continue
+            with summary_path.open("r", encoding="utf-8") as file:
+                summary = json.load(file)
+            rows.append(
+                summary_to_row(
+                    summary,
+                    run_id=run_id,
+                    mode=mode,
+                    target_distance=expected_pair["target_distance"],
+                    repetition_index=expected_pair["repetition_index"],
+                    args=args,
+                )
+            )
+    return rows
+
+
+def build_no_compensation_args(
+    args: argparse.Namespace,
+    target_distance: float,
+    current_y: float,
+) -> argparse.Namespace:
+    return argparse.Namespace(
+        target_distance=target_distance,
+        forward_command=args.forward_command,
+        current_x=args.current_x,
+        current_y=current_y,
+        current_z=args.current_z,
+        ticks_per_sec=args.ticks_per_sec,
+        max_duration=args.max_duration,
+        warmup_ticks=args.warmup_ticks,
+        dvl_forward_index=args.dvl_forward_index,
+        dvl_forward_sign=args.dvl_forward_sign,
+        speed_warning_threshold=args.speed_warning_threshold,
+        max_dvl_speed_warning_threshold=args.max_dvl_speed_warning_threshold,
+        diagnostic_distance_check=False,
+        make_current_plots=True,
+        current_api_method="env.set_ocean_currents(agent_name, velocity)",
+        scenario_name="Step02B_Comparison_No_Compensation",
+        experiment_label="Step 2B comparison no-compensation",
+        summary_title="Step 2B comparison no-compensation summary",
+        world=args.world,
+        results_dir=args.results_dir,
+        show_viewport=args.show_viewport,
+    )
+
+
+def build_compensation_args(
+    args: argparse.Namespace,
+    target_distance: float,
+    current_y: float,
+) -> argparse.Namespace:
+    return argparse.Namespace(
+        target_distance=target_distance,
+        desired_forward_velocity=args.desired_forward_velocity,
+        desired_lateral_velocity=args.desired_lateral_velocity,
+        current_x=args.current_x,
+        current_y=current_y,
+        current_z=args.current_z,
+        kp_forward=args.kp_forward,
+        kp_lateral=args.kp_lateral,
+        max_forward_command=args.max_forward_command,
+        max_lateral_command=args.max_lateral_command,
+        max_thruster_command=args.max_thruster_command,
+        base_vertical_command=args.base_vertical_command,
+        ticks_per_sec=args.ticks_per_sec,
+        max_duration=args.max_duration,
+        warmup_ticks=args.warmup_ticks,
+        dvl_forward_index=args.dvl_forward_index,
+        dvl_forward_sign=args.dvl_forward_sign,
+        dvl_lateral_index=args.dvl_lateral_index,
+        dvl_lateral_sign=args.dvl_lateral_sign,
+        speed_warning_threshold=args.speed_warning_threshold,
+        max_dvl_speed_warning_threshold=args.max_dvl_speed_warning_threshold,
+        world=args.world,
+        results_dir=args.results_dir,
+        show_viewport=args.show_viewport,
+    )
+
+
+def run_experiment_with_retries(
+    args: argparse.Namespace,
+    run_label: str,
+    runner,
+    run_args: argparse.Namespace,
+    output_dir: Path,
+) -> dict:
+    attempts = args.retry_count + 1
+    for attempt_index in range(1, attempts + 1):
+        try:
+            return runner(
+                run_args,
+                output_dir=output_dir,
+                print_terminal_summary=False,
+            )
+        except Exception as exc:
+            if attempt_index >= attempts:
+                raise
+            print(
+                "Warning: HoloOcean run failed during attempt "
+                f"{attempt_index}/{attempts} for {run_label}: {exc}"
+            )
+            if args.retry_delay > 0:
+                print(f"Waiting {args.retry_delay:g} s before retrying.")
+                time.sleep(args.retry_delay)
+
+    raise RuntimeError("unreachable retry state")
+
+
+def sleep_between_runs(args: argparse.Namespace) -> None:
+    if args.run_settle_delay > 0:
+        time.sleep(args.run_settle_delay)
 
 
 def make_run_id(target_distance: float, current_y: float, repetition_index: int) -> str:
@@ -354,7 +519,52 @@ def write_all_runs_csv(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def build_aggregate_summary(args: argparse.Namespace, batch_dir: Path, rows: list[dict]) -> dict:
+def write_comparison_outputs(
+    args: argparse.Namespace,
+    batch_dir: Path,
+    rows: list[dict],
+    expected_mode_run_count: int,
+    write_plots: bool,
+) -> dict:
+    write_all_runs_csv(batch_dir / "all_runs_summary.csv", rows)
+    aggregate_summary = build_aggregate_summary(
+        args,
+        batch_dir,
+        rows,
+        expected_mode_run_count,
+    )
+    write_json(batch_dir / "aggregate_summary.json", aggregate_summary)
+
+    if write_plots and rows:
+        plot_mode_metric_comparison(
+            rows,
+            "lateral_drift",
+            "Lateral drift [m]",
+            batch_dir / "lateral_drift_comparison.png",
+        )
+        plot_mode_metric_comparison(
+            rows,
+            "final_position_error",
+            "Final position error [m]",
+            batch_dir / "final_position_error_comparison.png",
+        )
+        plot_mode_metric_comparison(
+            rows,
+            "duration",
+            "Duration [s]",
+            batch_dir / "duration_comparison.png",
+        )
+        plot_velocity_error_summary(rows, batch_dir / "velocity_error_summary.png")
+
+    return aggregate_summary
+
+
+def build_aggregate_summary(
+    args: argparse.Namespace,
+    batch_dir: Path,
+    rows: list[dict],
+    expected_mode_run_count: int,
+) -> dict:
     groups = []
     grouped_rows: dict[tuple[float, float], list[dict]] = defaultdict(list)
     for row in rows:
@@ -410,6 +620,9 @@ def build_aggregate_summary(args: argparse.Namespace, batch_dir: Path, rows: lis
         "target_distances": [float(value) for value in args.target_distances],
         "current_y_values": [float(value) for value in args.current_y_values],
         "repetitions": int(args.repetitions),
+        "expected_mode_runs": int(expected_mode_run_count),
+        "completed_mode_runs": len(rows),
+        "complete": len(rows) == expected_mode_run_count,
         "desired_forward_velocity": float(args.desired_forward_velocity),
         "desired_lateral_velocity": float(args.desired_lateral_velocity),
         "modes": ["no_compensation", "dvl_velocity_compensation"],
