@@ -1,0 +1,36 @@
+target_distance_m: 5.0
+desired_forward_velocity_mps: 0.5
+desired_lateral_velocity_mps: 0.0
+kp_surge: 2.0
+ki_surge: 0.2
+kp_sway: 3.0
+ki_sway: 0.5
+max_surge: 1.0
+max_sway: 1.0
+integral_limit_surge: 1.0
+integral_limit_sway: 1.0
+max_thruster_command: 2.0
+ticks_per_sec: 30
+max_duration_s: 120.0
+warmup_ticks: 10
+world: "SimpleUnderwater"
+dvl_forward_index: 0
+dvl_forward_sign: 1.0
+dvl_lateral_index: 1
+dvl_lateral_sign: 1.0
+show_viewport: false
+current_x: 0.0
+current_y: 1.0
+current_z: 0.0
+current_magnitude: 1.0
+current_application_mode: "every_step"
+controller_type: "DVLVelocityPIController"
+command_abstraction: "body_frame_normalized_command"
+actuation_backend: "HoloOceanBlueROV2Mixer"
+real_hardware_policy: "controller outputs body-frame commands; real BlueROV2 should use an ArduSub/MAVLink backend rather than hard-coded motor order."
+sensor_policy:
+  DVL: "used for forward distance estimation, stopping, and PI velocity tracking"
+  Pose: "logged during the run and used after the run for evaluation only"
+  Velocity: "logged during the run and used after the run for evaluation only"
+  IMU: "available for logging/future work, not required by this controller"
+  Depth: "available for future depth control, not used by this controller"
