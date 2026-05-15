@@ -1,0 +1,24 @@
+controller_name: "dvl_p_altitude_hold"
+target_distance_m: 20.0
+desired_forward_velocity_mps: 0.3
+desired_lateral_velocity_mps: 0.0
+desired_altitude_m: 1.5
+altitude_tolerance_m: 0.2
+min_safe_altitude_m: 0.5
+kp_altitude: 0.6
+max_vertical_command: 0.8
+max_thruster_command: 2.0
+max_duration_s: 120.0
+ticks_per_sec: 30
+warmup_ticks: 10
+flat_seabed_z: -35.344
+initial_x: -20.0
+initial_z: -33.844
+world: "SimpleUnderwater"
+current_x: 0.0
+current_y: 0.0
+current_z: 0.0
+current_magnitude: 0.0
+ping_sensor_key: "PingAltimeter"
+ping_sensor_policy: "The vertical control loop uses only the PingAltimeter RangeFinder measurement. Pose.z is logged for evaluation only."
+vertical_command_sign_policy: "Positive vertical command on HoloOcean BlueROV2 vertical thrusters moves the vehicle upward and increases bottom-relative altitude."

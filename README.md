@@ -27,17 +27,22 @@ abstraction and a PI DVL velocity controller. The Step 2C controller outputs
 normalized body-frame commands; HoloOcean-specific 8-thruster mixing is isolated
 in a simulation adapter.
 
-No altitude control, full PID, EKF, A-to-B navigation, obstacle avoidance, or
-perception is implemented yet.
+Step 3 is implemented. It advances the BlueROV2 while maintaining
+seabed-relative altitude with a PingAltimeter-style RangeFinder. Horizontal
+motion uses DVL velocity tracking, and Pose.z is logged only as evaluation
+ground truth.
+
+Full PID, EKF, A-to-B navigation, obstacle avoidance, or perception is not
+implemented yet.
 
 ## Sensor Policy
 
-- DVL is allowed for estimation and stopping/control in Step 1, Step 2A, Step 2B, and Step 2C.
+- DVL is allowed for estimation and stopping/control in Step 1, Step 2A, Step 2B, Step 2C, and Step 3 horizontal control.
 - Pose is ground truth only and is used for validation and metrics.
 - Velocity is ground truth only and is used for validation and metrics.
 - IMU is available for future estimation/control work.
 - Depth is available for future depth-control work.
-- RangeFinder/Ping-style altimeter is reserved for future altitude-from-seabed control.
+- RangeFinder/Ping-style altimeter is used for Step 3 seabed-relative altitude control.
 - Cameras and imaging sonar are not required for Step 1 or Step 2.
 
 ## Water Turbidity / Fog Note
@@ -79,6 +84,9 @@ examples/
   step_02b_compare_compensation.py
   step_02c_dvl_pi_velocity_compensation_live.py
   step_02c_compare_pi_compensation.py
+  step_03_altitude_hold.py
+  run_step_03_altitude_hold_batch.py
+  analyze_step_03_results.py
 tests/
   run_unit_checks.py
 results/
@@ -92,6 +100,7 @@ results/
   step_02b_compensation_comparison/<timestamp>/
   step_02c_dvl_pi_velocity_compensation/<timestamp>/
   step_02c_pi_compensation_comparison/<timestamp>/
+  step_03_altitude_hold/<timestamp>/
 ```
 
 The `results/` directory contains generated experiment outputs and is ignored by
@@ -268,6 +277,50 @@ Reduction percentages in Step 2C comparison summaries are considered valid only
 when both compared modes reach the target for that target/current group. Timeout
 runs remain in the raw metrics, but their reduction-validity flags are false.
 
+## Step 3 Commands
+
+Step 3 moves forward while maintaining seabed-relative altitude. Horizontal
+control reuses DVL velocity tracking, while vertical control uses only the
+PingAltimeter RangeFinder measurement. Pose, including Pose.z, is never used by
+the altitude controller and remains evaluation ground truth.
+
+The current Step 3 controller variant is `dvl_p_altitude_hold`: DVL P velocity
+tracking in surge/sway plus conservative P altitude hold in heave. Positive
+vertical command is treated as upward in the HoloOcean BlueROV2
+`control_scheme=0` interface. The main validated batch uses `current_y` values
+`0.0`, `0.5`, and `1.0` m/s; `current_y=2.0` is outside the validated envelope
+from Step 2 and is reserved for the separate stress-test batch.
+
+Step 3 smoke/live run:
+
+```bash
+conda run -n ocean python examples/step_03_altitude_hold.py --target-distance 5 --desired-altitude 1.5 --current-y 0.0 --headless
+```
+
+Step 3 main validity batch:
+
+```bash
+conda run -n ocean python examples/run_step_03_altitude_hold_batch.py --batch-type main --headless
+```
+
+Optional altitude sweep:
+
+```bash
+conda run -n ocean python examples/run_step_03_altitude_hold_batch.py --batch-type altitude_sweep --headless
+```
+
+Optional stress test outside the main validated envelope:
+
+```bash
+conda run -n ocean python examples/run_step_03_altitude_hold_batch.py --batch-type stress --headless
+```
+
+Regenerate Step 3 aggregate files and plots from an existing batch:
+
+```bash
+conda run -n ocean python examples/analyze_step_03_results.py results/step_03_altitude_hold/<timestamp>
+```
+
 ## Outputs
 
 Each Step 1 live run writes:
@@ -359,6 +412,26 @@ Each Step 2C comparison run writes:
 - `saturation_summary.png`
 - one subfolder per individual run
 
+Each Step 3 live run writes:
+
+- `trajectory.csv`
+- `summary.json`
+- `run_config.yaml`
+
+Each Step 3 batch run writes:
+
+- `summary.csv`
+- `aggregate_by_condition.csv`
+- `metadata.json`
+- `metadata.yaml`
+- `logs.txt`
+- `altitude_representative_runs.png`
+- `altitude_error_representative_runs.png`
+- `final_lateral_drift_vs_target.png`
+- `rmse_altitude_error_vs_target.png`
+- `time_inside_altitude_band_vs_target.png`
+- one subfolder per individual run
+
 ## Notes
 
 - HoloOcean world coordinates and Pose displacements are treated as meters.
@@ -377,3 +450,7 @@ Each Step 2C comparison run writes:
 - Step 2C keeps body-frame control separate from actuation. The controller does
   not know HoloOcean or real motor order; the simulation mixer is the only layer
   that builds an 8-thruster HoloOcean command vector.
+- Step 3 success means the vehicle reaches the requested forward distance while
+  keeping PingAltimeter altitude close to the requested altitude. The main
+  metrics are altitude RMSE, max absolute altitude error, time inside the
+  altitude tolerance band, final lateral drift, target reached, and timeout.
