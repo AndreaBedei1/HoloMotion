@@ -1,0 +1,41 @@
+{
+  "output_dir": "C:\\Users\\andrea.bedei3\\Desktop\\HoloMotion\\results\\step_03_openwater_holes\\20260515_153630",
+  "number_of_runs": 1,
+  "target_reached_count": 0,
+  "timeout_count": 0,
+  "collision_count": 1,
+  "unsafe_altitude_count": 0,
+  "invalid_ping_failure_count": 0,
+  "mean_rmse_altitude_error": 6.546785635554287,
+  "max_estimated_seabed_z_range": 8.230669975280762,
+  "transects": [
+    {
+      "transect_name": "openwater_depression_landmark_7",
+      "hole_center_x": -403.17,
+      "hole_center_y": 459.44,
+      "hole_center_z": -310.02,
+      "target_distance": 20.0,
+      "desired_altitude": 3.0,
+      "initial_x": -413.17,
+      "initial_y": 459.44,
+      "initial_z": null,
+      "flat_seabed_z": -296.0,
+      "target_reached": false,
+      "stop_reason": "collision",
+      "timeout": false,
+      "collision": true,
+      "unsafe_altitude": false,
+      "invalid_ping_failure": false,
+      "runtime_seconds": 61.88369350000001,
+      "final_lateral_drift": -0.0626220703125,
+      "rmse_altitude_error": 6.546785635554287,
+      "max_abs_altitude_error": 9.408246040344238,
+      "time_inside_altitude_band_percent": 0.0,
+      "estimated_seabed_z_range": 8.230669975280762,
+      "estimated_seabed_z_min": -313.57810974121094,
+      "estimated_seabed_z_max": -305.3474397659302,
+      "vertical_saturation_percent": 100.0,
+      "output_dir": "C:\\Users\\andrea.bedei3\\Desktop\\HoloMotion\\results\\step_03_openwater_holes\\20260515_153630\\openwater_depression_landmark_7"
+    }
+  ]
+}

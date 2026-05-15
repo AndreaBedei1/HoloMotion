@@ -17,6 +17,7 @@ from experiments.altitude_hold import (
     DEFAULT_DESIRED_LATERAL_VELOCITY,
     DEFAULT_FLAT_SEABED_Z,
     DEFAULT_INITIAL_X,
+    DEFAULT_INITIAL_Y,
     DEFAULT_KP_ALTITUDE,
     DEFAULT_MAX_DURATION,
     DEFAULT_MAX_INVALID_PING_HOLD,
@@ -51,6 +52,12 @@ BATCH_DEFAULTS = {
         "desired_altitudes": [DEFAULT_DESIRED_ALTITUDE],
         "current_y_values": [1.5, 2.0],
         "repetitions": 3,
+    },
+    "openwater_holes": {
+        "target_distances": [20.0],
+        "desired_altitudes": [3.0],
+        "current_y_values": [0.0],
+        "repetitions": 1,
     },
 }
 
@@ -100,6 +107,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dvl-lateral-sign", type=float, choices=(-1.0, 1.0), default=1.0)
     parser.add_argument("--flat-seabed-z", type=float, default=DEFAULT_FLAT_SEABED_Z)
     parser.add_argument("--initial-x", type=float, default=DEFAULT_INITIAL_X)
+    parser.add_argument("--initial-y", type=float, default=DEFAULT_INITIAL_Y)
+    parser.add_argument("--initial-z", type=float, default=None)
     parser.add_argument("--ping-max-range", type=float, default=50.0)
     parser.add_argument("--max-invalid-ping-hold-s", type=float, default=DEFAULT_MAX_INVALID_PING_HOLD)
     parser.add_argument("--world", choices=World.list_worlds(), default=World.SimpleUnderwater)
@@ -140,6 +149,21 @@ def apply_batch_defaults(args: argparse.Namespace) -> None:
         args.current_y_values = list(defaults["current_y_values"])
     if args.repetitions is None:
         args.repetitions = int(defaults["repetitions"])
+    if args.batch_type == "openwater_holes":
+        args.world = World.OpenWater
+        args.desired_forward_velocity = 0.15
+        args.max_duration = 180.0
+        args.min_safe_altitude = 1.0
+        args.altitude_tolerance = 0.30
+        args.ping_max_range = 100.0
+        # OpenWater documentation landmark 12: (306.6, -321.7, -312.4).
+        # The dedicated run_step_03_openwater_holes.py script records the
+        # named transect metadata; this generic batch type mirrors its first
+        # conservative transect for compatibility with the Step 3 batch runner.
+        args.initial_x = 296.6
+        args.initial_y = -321.7
+        args.initial_z = -307.5
+        args.flat_seabed_z = -310.5
 
 
 if __name__ == "__main__":

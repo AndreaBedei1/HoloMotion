@@ -321,6 +321,32 @@ Regenerate Step 3 aggregate files and plots from an existing batch:
 conda run -n ocean python examples/analyze_step_03_results.py results/step_03_altitude_hold/<timestamp>
 ```
 
+## Step 3B OpenWater Hole-Crossing
+
+Step 3B validates terrain following over documented OpenWater seabed
+depressions. It uses the HoloOcean OpenWater documentation coordinates
+(`https://byu-holoocean.github.io/holoocean-docs/v2.2.2/packages/Ocean/OpenWater/openwater.html`)
+for named transects and drives across each depression along the x axis. The
+vertical controller still uses only the PingAltimeter RangeFinder; Pose is used
+only offline to reconstruct the seabed profile as `pose_z - ping_altitude`.
+
+The initial tests are intentionally conservative: higher altitude, low forward
+speed, no current, a larger PingAltimeter range, and the normal collision,
+unsafe-altitude, invalid-Ping, and timeout checks enabled. Later runs can add
+`current_y` once the no-current terrain-following behavior is validated.
+
+Step 3B OpenWater hole-crossing run:
+
+```bash
+conda run -n ocean python examples/run_step_03_openwater_holes.py --headless
+```
+
+One-transect smoke test:
+
+```bash
+conda run -n ocean python examples/run_step_03_openwater_holes.py --headless --max-transects 1
+```
+
 ## Outputs
 
 Each Step 1 live run writes:
@@ -431,6 +457,14 @@ Each Step 3 batch run writes:
 - `rmse_altitude_error_vs_target.png`
 - `time_inside_altitude_band_vs_target.png`
 - one subfolder per individual run
+
+Each Step 3B OpenWater hole-crossing run writes:
+
+- `all_runs_summary.csv`
+- `aggregate_summary.json`
+- `metadata.json`
+- one subfolder per named transect
+- `openwater_hole_profile.png` in each transect folder
 
 ## Notes
 

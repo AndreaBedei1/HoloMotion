@@ -17,6 +17,7 @@ from experiments.altitude_hold import (
     DEFAULT_DESIRED_LATERAL_VELOCITY,
     DEFAULT_FLAT_SEABED_Z,
     DEFAULT_INITIAL_X,
+    DEFAULT_INITIAL_Y,
     DEFAULT_KP_ALTITUDE,
     DEFAULT_MAX_DURATION,
     DEFAULT_MAX_INVALID_PING_HOLD,
@@ -83,6 +84,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dvl-lateral-sign", type=float, choices=(-1.0, 1.0), default=1.0)
     parser.add_argument("--flat-seabed-z", type=float, default=DEFAULT_FLAT_SEABED_Z)
     parser.add_argument("--initial-x", type=float, default=DEFAULT_INITIAL_X)
+    parser.add_argument("--initial-y", type=float, default=DEFAULT_INITIAL_Y)
+    parser.add_argument("--initial-z", type=float, default=None)
     parser.add_argument("--ping-max-range", type=float, default=50.0)
     parser.add_argument(
         "--max-invalid-ping-hold-s",

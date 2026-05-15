@@ -63,6 +63,7 @@ DEFAULT_MAX_THRUSTER_COMMAND = 2.0
 DEFAULT_MAX_DURATION = 120.0
 DEFAULT_FLAT_SEABED_Z = -35.344
 DEFAULT_INITIAL_X = -20.0
+DEFAULT_INITIAL_Y = 0.0
 DEFAULT_MAX_INVALID_PING_HOLD = 1.0
 
 
@@ -89,6 +90,7 @@ FRAME_FIELDNAMES = [
     "dvl_vz",
     "ping_altitude_raw",
     "ping_altitude",
+    "estimated_seabed_z_from_pose_ping",
     "altitude_error",
     "abs_altitude_error",
     "desired_forward_velocity",
@@ -127,6 +129,10 @@ SUMMARY_FIELDNAMES = [
     "final_altitude_error",
     "min_altitude",
     "max_altitude",
+    "estimated_seabed_z_min",
+    "estimated_seabed_z_max",
+    "estimated_seabed_z_range",
+    "estimated_seabed_z_std",
     "time_inside_altitude_band_percent",
     "time_below_safe_altitude_percent",
     "vertical_command_mean_abs",
@@ -215,10 +221,20 @@ def run_step_03_altitude_hold_experiment(
         forward_axis_sign=args.dvl_forward_sign,
     )
 
-    initial_z = float(args.flat_seabed_z + args.desired_altitude)
+    initial_z_policy = (
+        "explicit"
+        if getattr(args, "initial_z", None) is not None
+        else "flat_seabed_plus_desired_altitude"
+    )
+    initial_z = (
+        float(args.initial_z)
+        if getattr(args, "initial_z", None) is not None
+        else float(args.flat_seabed_z + args.desired_altitude)
+    )
     agent = build_step_03_agent(
         sensor_hz=args.ticks_per_sec,
         initial_x=args.initial_x,
+        initial_y=getattr(args, "initial_y", DEFAULT_INITIAL_Y),
         initial_z=initial_z,
         ping_max_range=args.ping_max_range,
         include_ground_truth=True,
@@ -246,7 +262,9 @@ def run_step_03_altitude_hold_experiment(
         "warmup_ticks": int(args.warmup_ticks),
         "flat_seabed_z": float(args.flat_seabed_z),
         "initial_x": float(args.initial_x),
+        "initial_y": float(getattr(args, "initial_y", DEFAULT_INITIAL_Y)),
         "initial_z": initial_z,
+        "initial_z_policy": initial_z_policy,
         "world": args.world,
         "current_x": float(current_vector[0]),
         "current_y": float(current_vector[1]),
@@ -262,6 +280,15 @@ def run_step_03_altitude_hold_experiment(
             "moves the vehicle upward and increases bottom-relative altitude."
         ),
     }
+    for optional_key in (
+        "hole_name",
+        "hole_center_x",
+        "hole_center_y",
+        "hole_center_z",
+        "documentation_source",
+    ):
+        if hasattr(args, optional_key):
+            run_config[optional_key] = getattr(args, optional_key)
     logger.write_run_config(run_config)
 
     print(f"Saving Step 3 altitude hold outputs to: {logger.output_dir}")
@@ -508,6 +535,7 @@ def run_step_03_altitude_hold_experiment(
 def build_step_03_agent(
     sensor_hz: int,
     initial_x: float,
+    initial_y: float,
     initial_z: float,
     ping_max_range: float,
     include_ground_truth: bool,
@@ -546,7 +574,7 @@ def build_step_03_agent(
         agent_name="rov0",
         agent_type="BlueROV2",
         control_scheme=0,
-        location=[initial_x, 0, initial_z],
+        location=[initial_x, initial_y, initial_z],
         rotation=[0, 0, 0],
         sensors=[sensor.to_dict() for sensor in sensors],
     )
@@ -650,6 +678,11 @@ def build_step_03_sample(
         if np.isfinite(altitude)
         else math.nan
     )
+    estimated_seabed_z = math.nan
+    if np.isfinite(altitude):
+        # Verified on the flat Step 3 SimpleUnderwater smoke runs:
+        # pose_z - ping_altitude is approximately flat_seabed_z.
+        estimated_seabed_z = float(pose["position"][2]) - altitude
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -674,6 +707,7 @@ def build_step_03_sample(
         "dvl_vz": float(dvl_values[2]) if dvl_values.size > 2 else math.nan,
         "ping_altitude_raw": raw_ping_to_csv_value(ping_reading.raw_value),
         "ping_altitude": altitude,
+        "estimated_seabed_z_from_pose_ping": estimated_seabed_z,
         "altitude_error": altitude_error,
         "abs_altitude_error": abs(altitude_error) if np.isfinite(altitude_error) else math.nan,
         "desired_forward_velocity": float(args.desired_forward_velocity),
@@ -753,6 +787,9 @@ def build_step_03_summary(
     altitude_errors = finite_values(sample["altitude_error"] for sample in samples)
     abs_altitude_errors = [abs(value) for value in altitude_errors]
     altitudes = finite_values(sample["ping_altitude"] for sample in samples)
+    estimated_seabed_z_values = finite_values(
+        sample["estimated_seabed_z_from_pose_ping"] for sample in samples
+    )
     vertical_commands = finite_values(sample["vertical_command"] for sample in samples[1:])
     inside_band = [
         abs(float(sample["altitude_error"])) <= args.altitude_tolerance
@@ -801,6 +838,14 @@ def build_step_03_summary(
         ),
         "min_altitude": min(altitudes, default=math.nan),
         "max_altitude": max(altitudes, default=math.nan),
+        "estimated_seabed_z_min": min(estimated_seabed_z_values, default=math.nan),
+        "estimated_seabed_z_max": max(estimated_seabed_z_values, default=math.nan),
+        "estimated_seabed_z_range": (
+            max(estimated_seabed_z_values) - min(estimated_seabed_z_values)
+            if estimated_seabed_z_values
+            else math.nan
+        ),
+        "estimated_seabed_z_std": std_value(estimated_seabed_z_values),
         "time_inside_altitude_band_percent": percent_true(inside_band),
         "time_below_safe_altitude_percent": percent_true(below_safe),
         "vertical_command_mean_abs": mean_value([abs(value) for value in vertical_commands]),
@@ -844,6 +889,10 @@ def validate_run_args(args: argparse.Namespace) -> None:
         raise ValueError("ping-max-range must be greater than desired-altitude.")
     if not np.isfinite(float(args.initial_x)):
         raise ValueError("initial-x must be finite.")
+    if not np.isfinite(float(getattr(args, "initial_y", DEFAULT_INITIAL_Y))):
+        raise ValueError("initial-y must be finite.")
+    if getattr(args, "initial_z", None) is not None and not np.isfinite(float(args.initial_z)):
+        raise ValueError("initial-z must be finite when provided.")
 
 
 def run_step_03_batch(args: argparse.Namespace) -> dict:
@@ -975,6 +1024,8 @@ def build_run_args_from_batch(args: argparse.Namespace, run_spec: dict) -> argpa
         dvl_lateral_index=args.dvl_lateral_index,
         dvl_lateral_sign=args.dvl_lateral_sign,
         initial_x=args.initial_x,
+        initial_y=getattr(args, "initial_y", DEFAULT_INITIAL_Y),
+        initial_z=getattr(args, "initial_z", None),
         flat_seabed_z=args.flat_seabed_z,
         ping_max_range=args.ping_max_range,
         max_invalid_ping_hold_s=args.max_invalid_ping_hold_s,
@@ -1153,6 +1204,10 @@ def failed_summary_from_exception(
         "final_altitude_error": 0.0,
         "min_altitude": 0.0,
         "max_altitude": 0.0,
+        "estimated_seabed_z_min": 0.0,
+        "estimated_seabed_z_max": 0.0,
+        "estimated_seabed_z_range": 0.0,
+        "estimated_seabed_z_std": 0.0,
         "time_inside_altitude_band_percent": 0.0,
         "time_below_safe_altitude_percent": 0.0,
         "vertical_command_mean_abs": 0.0,
@@ -1215,6 +1270,12 @@ def build_batch_metadata(args: argparse.Namespace, batch_dir: Path) -> dict:
         "dvl_lateral_index": int(args.dvl_lateral_index),
         "dvl_lateral_sign": float(args.dvl_lateral_sign),
         "initial_x": float(args.initial_x),
+        "initial_y": float(getattr(args, "initial_y", DEFAULT_INITIAL_Y)),
+        "initial_z": (
+            float(args.initial_z)
+            if getattr(args, "initial_z", None) is not None
+            else None
+        ),
         "flat_seabed_z": float(args.flat_seabed_z),
         "world": args.world,
         "pose_policy": "Pose is evaluation ground truth only and is never used for altitude control.",
