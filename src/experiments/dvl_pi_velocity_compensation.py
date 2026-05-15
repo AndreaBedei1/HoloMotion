@@ -325,6 +325,7 @@ def run_dvl_pi_velocity_compensation_experiment(
             "current_magnitude": current_config.magnitude,
             "current_application_mode": current_application_mode,
             "current_application_calls": current_application_calls,
+            "target_reached": bool(stop_reason == "target_reached"),
             "desired_forward_velocity": float(args.desired_forward_velocity),
             "desired_lateral_velocity": float(args.desired_lateral_velocity),
             "kp_surge": float(args.kp_surge),
