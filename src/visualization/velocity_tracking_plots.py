@@ -73,7 +73,14 @@ def plot_mode_metric_comparison(
         raise ValueError("Cannot plot comparison metrics without rows.")
 
     fig, ax = plt.subplots(figsize=(8, 4.8))
-    modes = ["no_compensation", "dvl_velocity_compensation"]
+    preferred_modes = [
+        "no_compensation",
+        "dvl_velocity_compensation",
+        "dvl_pi_velocity_compensation",
+    ]
+    row_modes = {row["mode"] for row in rows}
+    modes = [mode for mode in preferred_modes if mode in row_modes]
+    modes.extend(sorted(row_modes - set(modes)))
     targets = sorted({float(row["target_distance"]) for row in rows})
     for target in targets:
         for mode in modes:
@@ -87,7 +94,11 @@ def plot_mode_metric_comparison(
                 float(np.mean([float(row[metric_key]) for row in mode_rows if float(row["current_y"]) == current_y]))
                 for current_y in current_values
             ]
-            linestyle = "-" if mode == "dvl_velocity_compensation" else "--"
+            linestyle = {
+                "no_compensation": "--",
+                "dvl_velocity_compensation": "-",
+                "dvl_pi_velocity_compensation": "-.",
+            }.get(mode, ":")
             ax.plot(
                 current_values,
                 means,

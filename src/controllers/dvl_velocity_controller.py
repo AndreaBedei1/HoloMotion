@@ -4,6 +4,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from actuation.holoocean_bluerov2_mixer import (
+    build_holoocean_bluerov2_horizontal_command,
+)
+
 
 def bluerov2_horizontal_command(
     forward_command: float,
@@ -11,27 +15,18 @@ def bluerov2_horizontal_command(
     base_vertical_command: float = 0.0,
     max_thruster_command: float | None = None,
 ) -> np.ndarray:
-    """Build a BlueROV2 control-scheme-0 command from body-frame motions.
+    """Build a HoloOcean BlueROV2 control-scheme-0 command vector.
 
-    Thrusters 0..3 are vertical thrusters. Thrusters 4..7 are horizontal.
-    Positive forward command drives horizontal thrusters 4..7 equally.
-    Positive lateral command uses [+, -, +, -] on thrusters 4..7. This sign
-    convention is matched to the default DVL lateral axis used by Step 2B.
+    This compatibility wrapper preserves the Step 2B HoloOcean baseline. It is
+    not a verified real BlueROV2 motor-order mapping.
     """
 
-    command = np.zeros(8, dtype=float)
-    command[0:4] = float(base_vertical_command)
-    command[4] = float(forward_command + lateral_command)
-    command[5] = float(forward_command - lateral_command)
-    command[6] = float(forward_command + lateral_command)
-    command[7] = float(forward_command - lateral_command)
-    if max_thruster_command is not None:
-        command = np.clip(
-            command,
-            -float(max_thruster_command),
-            float(max_thruster_command),
-        )
-    return command
+    return build_holoocean_bluerov2_horizontal_command(
+        forward_command=forward_command,
+        lateral_command=lateral_command,
+        base_vertical_command=base_vertical_command,
+        max_thruster_command=max_thruster_command,
+    )
 
 
 @dataclass

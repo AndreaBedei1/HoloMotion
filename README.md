@@ -17,17 +17,22 @@ Step 2A is implemented. It runs the same forward-distance navigation under
 controlled ocean-current disturbances without compensation and records drift,
 position error, DVL distance, Pose displacement, timing, and stop-reason metrics.
 
-Step 2B is implemented. It adds a simple proportional DVL body-frame velocity
-tracking controller. The controller tracks desired forward and lateral DVL
-velocities; it does not blindly cancel lateral motion and it does not use the
-known HoloOcean current vector.
+Step 2B is implemented. It is a P-only DVL body-frame velocity tracking
+baseline. The controller tracks desired forward and lateral DVL velocities; it
+does not blindly cancel lateral motion and it does not use the known HoloOcean
+current vector.
+
+Step 2C is implemented. It introduces a real-compatible body-frame command
+abstraction and a PI DVL velocity controller. The Step 2C controller outputs
+normalized body-frame commands; HoloOcean-specific 8-thruster mixing is isolated
+in a simulation adapter.
 
 No altitude control, full PID, EKF, A-to-B navigation, obstacle avoidance, or
 perception is implemented yet.
 
 ## Sensor Policy
 
-- DVL is allowed for estimation and stopping/control in Step 1, Step 2A, and Step 2B.
+- DVL is allowed for estimation and stopping/control in Step 1, Step 2A, Step 2B, and Step 2C.
 - Pose is ground truth only and is used for validation and metrics.
 - Velocity is ground truth only and is used for validation and metrics.
 - IMU is available for future estimation/control work.
@@ -52,6 +57,8 @@ navigation unless HoloOcean explicitly models that physical effect.
 
 ```text
 src/
+  actuation/              HoloOcean mixer and future actuation backend interfaces
+  control/                Body-frame command and velocity dataclasses
   controllers/            Simple reusable control helpers
   estimators/             DVL distance estimator
   experiments/            Shared experiment runners used by examples
@@ -70,6 +77,8 @@ examples/
   step_02b_dvl_velocity_compensation_live.py
   step_02b_lateral_axis_check.py
   step_02b_compare_compensation.py
+  step_02c_dvl_pi_velocity_compensation_live.py
+  step_02c_compare_pi_compensation.py
 tests/
   run_unit_checks.py
 results/
@@ -81,6 +90,8 @@ results/
   step_02b_dvl_velocity_compensation/<timestamp>/
   step_02b_lateral_axis_check/<timestamp>/
   step_02b_compensation_comparison/<timestamp>/
+  step_02c_dvl_pi_velocity_compensation/<timestamp>/
+  step_02c_pi_compensation_comparison/<timestamp>/
 ```
 
 The `results/` directory contains generated experiment outputs and is ignored by
@@ -217,6 +228,46 @@ existing timestamped comparison directory. Completed mode runs with
 conda run -n ocean python examples/step_02b_compare_compensation.py --resume-dir results/step_02b_compensation_comparison/<timestamp> --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3 --headless
 ```
 
+## Step 2C Commands
+
+Step 2C adds a PI body-frame velocity controller. It returns normalized
+body-frame commands (`surge`, `sway`, `heave`, `yaw`) rather than direct motor
+outputs. In simulation, `HoloOceanBlueROV2Mixer` converts those commands to the
+HoloOcean `control_scheme=0` 8-thruster vector. That mixer preserves the Step 2B
+HoloOcean convention, but it is simulation-specific and is not a verified real
+BlueROV2 motor-order mapping.
+
+Real BlueROV2 support should use a future ArduSub/MAVLink backend that sends
+body-axis commands to ArduSub's configured frame mixer. It should not hard-code
+real motor ordering or send unsafe direct motor commands.
+
+Step 2C live with PI DVL velocity tracking:
+
+```bash
+conda run -n ocean python examples/step_02c_dvl_pi_velocity_compensation_live.py --target-distance 5 --current-y 1.0 --max-duration 120 --headless
+```
+
+Step 2C focused comparison:
+
+```bash
+conda run -n ocean python examples/step_02c_compare_pi_compensation.py --target-distances 10 --current-y-values 0.5 1.0 2.0 --repetitions 3 --max-duration 120 --headless
+```
+
+Step 2C full comparison:
+
+```bash
+conda run -n ocean python examples/step_02c_compare_pi_compensation.py --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3 --max-duration 120 --headless
+```
+
+The Step 2C live and comparison scripts default to `120.0` seconds because the
+older 60 second timeout is too short for fair 20 m comparisons under strong
+lateral current. The comparison script passes the same `max_duration` to
+no-compensation, Step 2B, and Step 2C runs.
+
+Reduction percentages in Step 2C comparison summaries are considered valid only
+when both compared modes reach the target for that target/current group. Timeout
+runs remain in the raw metrics, but their reduction-validity flags are false.
+
 ## Outputs
 
 Each Step 1 live run writes:
@@ -286,6 +337,28 @@ Each Step 2B comparison run writes:
 - `velocity_error_summary.png`
 - one subfolder per individual run
 
+Each Step 2C live run writes:
+
+- `trajectory.csv`
+- `summary.json`
+- `run_config.yaml`
+- `distance_plot.png`
+- `trajectory_plot.png`
+- `lateral_drift_plot.png`
+- `velocity_tracking_plot.png`
+- `command_plot.png`
+
+Each Step 2C comparison run writes:
+
+- `all_runs_summary.csv`
+- `aggregate_summary.json`
+- `lateral_drift_comparison.png`
+- `final_position_error_comparison.png`
+- `duration_comparison.png`
+- `target_reached_rate_comparison.png`
+- `saturation_summary.png`
+- one subfolder per individual run
+
 ## Notes
 
 - HoloOcean world coordinates and Pose displacements are treated as meters.
@@ -301,3 +374,6 @@ Each Step 2B comparison run writes:
 - Positive Step 2B lateral command currently uses the same horizontal thruster
   pattern as keyboard left strafe: `[+, -, +, -]` on thrusters 4..7. Validate
   the DVL lateral sign with `step_02b_lateral_axis_check.py` before long runs.
+- Step 2C keeps body-frame control separate from actuation. The controller does
+  not know HoloOcean or real motor order; the simulation mixer is the only layer
+  that builds an 8-thruster HoloOcean command vector.
