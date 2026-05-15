@@ -12,6 +12,7 @@
 
 ## Current Validation Status
 
+- Current project snapshot: [CURRENT_STATUS_2026-05-15.md](CURRENT_STATUS_2026-05-15.md).
 - Step 2B and Step 2C are available for 120 s comparisons.
 - Step 2C improved robustness at moderate lateral current, but strong
   `current_y=2.0` remains outside the reliable envelope for long 20 m targets.
@@ -22,6 +23,7 @@
 
 ## Open Limitations
 
+- Step 4 is not implemented yet.
 - Step 3 altitude control is P-only.
 - Step 3B transects need more systematic full-batch analysis.
 - Current handling is still simulator-specific.

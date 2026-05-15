@@ -2,6 +2,7 @@
 
 | Step | Goal | Control sensors | Ground truth sensors | Current status | Main limitations | Main command |
 |---|---|---|---|---|---|---|
+| Step 0 | Check water visibility and fog rendering. | None | Viewport / scene output | Implemented | Qualitative environment check only. | `conda run -n ocean python examples/step_00_water_visibility_check.py --headless` |
 | Step 1 | Move forward by target distance using DVL integration. | DVL | Pose, Velocity | Implemented | No current compensation or altitude control. | `conda run -n ocean python examples/step_01_forward_distance_live.py --target-distance 5 --headless` |
 | Step 2A | Measure current-induced drift without compensation. | DVL for stopping | Pose, Velocity | Implemented | No compensation; baseline only. | `conda run -n ocean python examples/step_02_batch_current_distance_grid.py --target-distances 5 10 20 --current-y-values 0.0 0.25 0.5 1.0 2.0 --repetitions 3 --headless` |
 | Step 2B | Add P-only DVL body-frame velocity tracking. | DVL | Pose, Velocity | Implemented | Legacy controller returns HoloOcean thruster vector for backward compatibility. | `conda run -n ocean python examples/step_02b_compare_compensation.py --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3 --max-duration 120 --headless` |
