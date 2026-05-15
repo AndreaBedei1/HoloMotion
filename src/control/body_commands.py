@@ -1,3 +1,9 @@
+"""Body-frame setpoints, measurements, and normalized command objects.
+
+These dataclasses are the controller-facing API. They deliberately avoid any
+HoloOcean thruster index or real BlueROV2 motor-order assumption.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,6 +24,8 @@ def _validate_finite_float(name: str, value: float) -> float:
 
 @dataclass(frozen=True)
 class BodyVelocitySetpoint:
+    """Desired body-frame velocity used by velocity controllers."""
+
     surge_mps: float
     sway_mps: float
     heave_mps: float = 0.0
@@ -60,6 +68,8 @@ class BodyVelocitySetpoint:
 
 @dataclass(frozen=True)
 class BodyVelocityMeasurement:
+    """Measured body-frame velocity from a sensor such as a DVL."""
+
     surge_mps: float
     sway_mps: float
     heave_mps: float = 0.0
@@ -102,6 +112,8 @@ class BodyVelocityMeasurement:
 
 @dataclass(frozen=True)
 class BodyCommand:
+    """Normalized body-frame command independent from any actuation backend."""
+
     surge: float
     sway: float
     heave: float = 0.0

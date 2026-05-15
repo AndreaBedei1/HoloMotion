@@ -1,3 +1,10 @@
+"""Step 3B OpenWater hole-crossing runner.
+
+This example contains named transect batch logic because the OpenWater tests
+are defined by documentation coordinates rather than by a simple distance /
+current grid. The control implementation remains in `src/experiments`.
+"""
+
 from __future__ import annotations
 
 import argparse

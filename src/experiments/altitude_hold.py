@@ -1,3 +1,9 @@
+"""Step 3 DVL horizontal tracking with PingAltimeter altitude hold.
+
+The vertical control loop uses only PingAltimeter / RangeFinder altitude.
+Pose is logged for evaluation and offline seabed reconstruction only.
+"""
+
 from __future__ import annotations
 
 import argparse

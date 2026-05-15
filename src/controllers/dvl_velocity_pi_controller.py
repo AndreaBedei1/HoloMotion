@@ -34,7 +34,12 @@ def _normalized_limit(name: str, value: float) -> float:
 
 @dataclass
 class DVLVelocityPIController:
-    """PI controller for DVL-measured body-frame velocity tracking."""
+    """PI controller for DVL-measured body-frame velocity tracking.
+
+    The controller consumes desired and measured body-frame velocities and
+    returns a normalized `BodyCommand`. It does not know about HoloOcean
+    thruster ordering, real motor ordering, Pose, or ground-truth Velocity.
+    """
 
     kp_surge: float = 2.0
     ki_surge: float = 0.2
@@ -147,7 +152,8 @@ class DVLVelocityPIController:
         candidate_saturated = abs(candidate_raw) > output_limit
 
         # Simple anti-windup: when the candidate output is already saturated,
-        # do not add integral in the same direction as the saturated output.
+        # do not let the integral keep growing in the direction that would
+        # push the command deeper into saturation.
         pushes_deeper_positive = candidate_raw > output_limit and integral_delta > 0.0
         pushes_deeper_negative = candidate_raw < -output_limit and integral_delta < 0.0
         if candidate_saturated and (pushes_deeper_positive or pushes_deeper_negative):

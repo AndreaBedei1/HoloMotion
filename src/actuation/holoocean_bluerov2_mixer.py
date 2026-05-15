@@ -75,7 +75,11 @@ def build_holoocean_bluerov2_horizontal_command(
     base_vertical_command: float = 0.0,
     max_thruster_command: float | None = None,
 ) -> np.ndarray:
-    """Build the legacy HoloOcean control_scheme=0 horizontal command vector."""
+    """Build the legacy HoloOcean control_scheme=0 horizontal command vector.
+
+    This helper exists for Step 2B reproducibility. It is not a real BlueROV2
+    motor-order map.
+    """
 
     command = np.zeros(8, dtype=float)
     command[0:4] = float(base_vertical_command)

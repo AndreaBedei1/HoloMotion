@@ -1,0 +1,10 @@
+# Project State
+
+| Step | Goal | Control sensors | Ground truth sensors | Current status | Main limitations | Main command |
+|---|---|---|---|---|---|---|
+| Step 1 | Move forward by target distance using DVL integration. | DVL | Pose, Velocity | Implemented | No current compensation or altitude control. | `conda run -n ocean python examples/step_01_forward_distance_live.py --target-distance 5 --headless` |
+| Step 2A | Measure current-induced drift without compensation. | DVL for stopping | Pose, Velocity | Implemented | No compensation; baseline only. | `conda run -n ocean python examples/step_02_batch_current_distance_grid.py --target-distances 5 10 20 --current-y-values 0.0 0.25 0.5 1.0 2.0 --repetitions 3 --headless` |
+| Step 2B | Add P-only DVL body-frame velocity tracking. | DVL | Pose, Velocity | Implemented | Legacy controller returns HoloOcean thruster vector for backward compatibility. | `conda run -n ocean python examples/step_02b_compare_compensation.py --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3 --max-duration 120 --headless` |
+| Step 2C | Use PI DVL velocity tracking with body-frame command abstraction. | DVL | Pose, Velocity | Implemented | Strong lateral current can still saturate and timeout. | `conda run -n ocean python examples/step_02c_compare_pi_compensation.py --target-distances 5 10 20 --current-y-values 0.5 1.0 2.0 --repetitions 3 --max-duration 120 --headless` |
+| Step 3 | Move forward while holding seabed-relative altitude. | DVL, PingAltimeter | Pose, Velocity | Implemented | Altitude loop is P-only; validated envelope excludes `current_y=2.0`. | `conda run -n ocean python examples/run_step_03_altitude_hold_batch.py --batch-type main --headless` |
+| Step 3B | Validate terrain following over OpenWater depressions. | DVL, PingAltimeter | Pose, Velocity | Implemented | Needs more full-run analysis; some documented landmarks may collide. | `conda run -n ocean python examples/run_step_03_openwater_holes.py --headless` |
