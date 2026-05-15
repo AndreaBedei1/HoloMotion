@@ -6,6 +6,8 @@ HoloMotion is a staged HoloOcean / BlueROV2-style experimental project for under
 
 Step 4 is not implemented yet.
 
+Latest experimental results status: [RESULTS_STATUS_2026-05-15.md](RESULTS_STATUS_2026-05-15.md).
+
 ## Implemented Steps
 
 | Step | What it tests | Control sensors | Evaluation-only sensors | Current status | Main limitation |
