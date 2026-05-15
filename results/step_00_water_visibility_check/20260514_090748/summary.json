@@ -1,0 +1,17 @@
+{
+  "supported": true,
+  "output_dir": "C:\\Users\\andrea.bedei3\\Desktop\\HoloMotion\\results\\step_00_water_visibility_check\\20260514_090748",
+  "water_fog": {
+    "fog_density": 10.0,
+    "fog_depth": 0.0,
+    "color_r": 0.4,
+    "color_g": 0.6,
+    "color_b": 1.0,
+    "api_method": "HoloOceanEnvironment.water_fog",
+    "command": "WaterFogCommand",
+    "effect_scope": "visual only"
+  },
+  "duration_s": 0.2,
+  "show_viewport": false,
+  "effect_scope": "visual only"
+}

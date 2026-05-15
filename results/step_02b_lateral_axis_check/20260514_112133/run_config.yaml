@@ -1,0 +1,12 @@
+lateral_command: 0.5
+duration_per_phase_s: 5.0
+current_x: 0.0
+current_y: 0.0
+current_z: 0.0
+current_magnitude: 0.0
+ticks_per_sec: 30
+world: "SimpleUnderwater"
+dvl_lateral_index: 1
+dvl_lateral_sign: 1.0
+show_viewport: false
+purpose: "Measure DVL lateral velocity response to positive and negative lateral-only thruster commands. Pose is logged for reporting only."

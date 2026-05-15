@@ -1,0 +1,65 @@
+{
+  "output_dir": "C:\\Users\\andrea.bedei3\\Desktop\\HoloMotion\\results\\step_01_forward_distance_batch\\20260513_161355",
+  "target_distances": [
+    2.0,
+    5.0,
+    10.0,
+    20.0
+  ],
+  "repetitions": 3,
+  "max_duration_s": 60.0,
+  "forward_command": 2.0,
+  "show_viewport": true,
+  "dvl_forward_index": 0,
+  "dvl_forward_sign": 1.0,
+  "targets": {
+    "2.0": {
+      "successful_runs": 3,
+      "timeout_runs": 0,
+      "mean_absolute_error": 0.009763581471445773,
+      "std_absolute_error": 0.005904315143519797,
+      "mean_percentage_error": 0.48439550683572424,
+      "std_percentage_error": 0.2925008096667723,
+      "mean_lateral_drift": 0.0,
+      "std_lateral_drift": 0.0,
+      "mean_duration": 5.391762300000001,
+      "std_duration": 0.016476636261284944
+    },
+    "5.0": {
+      "successful_runs": 3,
+      "timeout_runs": 0,
+      "mean_absolute_error": 0.03526021794750189,
+      "std_absolute_error": 0.030488855785757073,
+      "mean_percentage_error": 0.7118794623764022,
+      "std_percentage_error": 0.6209789169271341,
+      "mean_lateral_drift": 0.0,
+      "std_lateral_drift": 0.0,
+      "mean_duration": 12.085176733333329,
+      "std_duration": 0.10043616847973227
+    },
+    "10.0": {
+      "successful_runs": 3,
+      "timeout_runs": 0,
+      "mean_absolute_error": 0.027170595860902463,
+      "std_absolute_error": 0.004647387981146398,
+      "mean_percentage_error": 0.2722341998462015,
+      "std_percentage_error": 0.046681451929466884,
+      "mean_lateral_drift": 0.0,
+      "std_lateral_drift": 0.0,
+      "mean_duration": 23.30204523333334,
+      "std_duration": 0.01672922277619888
+    },
+    "20.0": {
+      "successful_runs": 3,
+      "timeout_runs": 0,
+      "mean_absolute_error": 0.049761785401096624,
+      "std_absolute_error": 0.02111305311227949,
+      "mean_percentage_error": 0.24923267029435928,
+      "std_percentage_error": 0.10627590080402617,
+      "mean_lateral_drift": 0.0,
+      "std_lateral_drift": 0.0,
+      "mean_duration": 45.75257633333334,
+      "std_duration": 0.11079166510268962
+    }
+  }
+}
