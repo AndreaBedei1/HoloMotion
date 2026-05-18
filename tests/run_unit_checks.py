@@ -13,7 +13,10 @@ for path in (SRC_DIR, EXAMPLES_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from actuation.bluerov2_heavy_authority import BlueROV2HeavyAuthority
+from actuation.bluerov2_heavy_config import BlueROV2HeavyThrusterLayout
 from actuation.holoocean_bluerov2_mixer import HoloOceanBlueROV2Mixer
+from actuation.t200_thruster_model import KGF_TO_NEWTON, T200ThrusterModel
 from control.body_commands import BodyCommand, BodyVelocityMeasurement, BodyVelocitySetpoint
 from controllers.dvl_velocity_controller import (
     DVLVelocityTrackingController,
@@ -36,6 +39,18 @@ def assert_vector_close(actual, expected, tolerance: float = 1e-9) -> None:
     expected_array = np.asarray(expected, dtype=float)
     if not np.allclose(actual_array, expected_array, atol=tolerance, rtol=0.0):
         raise AssertionError(f"Expected {expected_array}, got {actual_array}.")
+
+
+def assert_raises(expected_exception: type[Exception], func) -> None:
+    try:
+        func()
+    except expected_exception:
+        return
+    except Exception as exc:
+        raise AssertionError(
+            f"Expected {expected_exception.__name__}, got {type(exc).__name__}."
+        ) from exc
+    raise AssertionError(f"Expected {expected_exception.__name__}.")
 
 
 def test_dvl_distance_estimator_integrates_velocity() -> None:
@@ -226,6 +241,90 @@ def test_holoocean_mixer_clipping() -> None:
         raise AssertionError("Expected mixer output to respect max_thruster_command.")
 
 
+def test_bluerov2_heavy_layout_defaults() -> None:
+    layout = BlueROV2HeavyThrusterLayout()
+    if layout.total_thrusters != 8:
+        raise AssertionError("Expected default total_thrusters to be 8.")
+    if layout.horizontal_thrusters != 4:
+        raise AssertionError("Expected default horizontal_thrusters to be 4.")
+    if layout.vertical_thrusters != 4:
+        raise AssertionError("Expected default vertical_thrusters to be 4.")
+    grouped_thrusters = layout.horizontal_thruster_count() + layout.vertical_thruster_count()
+    if grouped_thrusters != layout.total_thrusters:
+        raise AssertionError("Expected horizontal + vertical thrusters to equal total.")
+
+
+def test_bluerov2_heavy_layout_invalid_raises() -> None:
+    assert_raises(ValueError, lambda: BlueROV2HeavyThrusterLayout(total_thrusters=0))
+    assert_raises(
+        ValueError,
+        lambda: BlueROV2HeavyThrusterLayout(
+            total_thrusters=8,
+            horizontal_thrusters=5,
+            vertical_thrusters=4,
+        ),
+    )
+
+
+def test_t200_nominal_16v_thrust_values() -> None:
+    model = T200ThrusterModel.from_nominal_16v()
+    assert_close(model.performance.max_forward_thrust_n, 5.25 * KGF_TO_NEWTON)
+    assert_close(model.performance.max_reverse_thrust_n, 4.10 * KGF_TO_NEWTON)
+
+
+def test_t200_command_to_thrust_asymmetry() -> None:
+    model = T200ThrusterModel.from_nominal_16v()
+    assert_close(model.command_to_thrust_n(0.0), 0.0)
+    full_forward = model.command_to_thrust_n(1.0)
+    full_reverse = model.command_to_thrust_n(-1.0)
+    if not full_forward > abs(full_reverse):
+        raise AssertionError("Expected forward thrust magnitude to exceed reverse thrust.")
+    if not full_reverse < 0.0:
+        raise AssertionError("Expected reverse command to produce negative thrust.")
+
+
+def test_t200_thrust_to_command_limits() -> None:
+    model = T200ThrusterModel.from_nominal_16v()
+    assert_close(
+        model.thrust_to_command(model.performance.max_forward_thrust_n),
+        1.0,
+    )
+    assert_close(
+        model.thrust_to_command(-model.performance.max_reverse_thrust_n),
+        -1.0,
+    )
+
+
+def test_t200_clip_thrust_limits() -> None:
+    model = T200ThrusterModel.from_nominal_16v()
+    forward_limit = model.performance.max_forward_thrust_n
+    reverse_limit = model.performance.max_reverse_thrust_n
+    assert_close(model.clip_thrust_n(forward_limit * 2.0), forward_limit)
+    assert_close(model.clip_thrust_n(-reverse_limit * 2.0), -reverse_limit)
+
+
+def test_bluerov2_heavy_authority_sums() -> None:
+    layout = BlueROV2HeavyThrusterLayout()
+    model = T200ThrusterModel.from_nominal_16v()
+    authority = BlueROV2HeavyAuthority(layout=layout, thruster_model=model)
+    per_thruster_forward = authority.per_thruster_forward_thrust_n
+    assert_close(
+        authority.horizontal_4_thruster_forward_sum_n,
+        4.0 * per_thruster_forward,
+    )
+    assert_close(
+        authority.total_8_thruster_forward_sum_n,
+        8.0 * per_thruster_forward,
+    )
+
+
+def test_t200_non_finite_inputs_raise() -> None:
+    model = T200ThrusterModel.from_nominal_16v()
+    assert_raises(ValueError, lambda: model.command_to_thrust_n(float("nan")))
+    assert_raises(ValueError, lambda: model.thrust_to_command(float("inf")))
+    assert_raises(ValueError, lambda: model.clip_thrust_n(float("-inf")))
+
+
 def test_bluerov2_horizontal_command_backwards_compatibility() -> None:
     assert_vector_close(
         bluerov2_horizontal_command(1.0, 0.25, base_vertical_command=0.1),
@@ -306,6 +405,14 @@ def main() -> None:
         test_pi_controller_saturation_metadata,
         test_holoocean_mixer_shape_and_pattern,
         test_holoocean_mixer_clipping,
+        test_bluerov2_heavy_layout_defaults,
+        test_bluerov2_heavy_layout_invalid_raises,
+        test_t200_nominal_16v_thrust_values,
+        test_t200_command_to_thrust_asymmetry,
+        test_t200_thrust_to_command_limits,
+        test_t200_clip_thrust_limits,
+        test_bluerov2_heavy_authority_sums,
+        test_t200_non_finite_inputs_raise,
         test_bluerov2_horizontal_command_backwards_compatibility,
         test_step2c_parser_default_max_duration,
         test_compute_distance_metrics_final_position_error,

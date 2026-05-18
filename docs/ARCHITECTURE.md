@@ -34,6 +34,28 @@ Real BlueROV2 / BlueROV2 Heavy hardware should not hard-code this motor order.
 A future ArduSub/MAVLink backend should send body-axis commands to ArduSub and
 let ArduSub's configured frame mixer handle motor allocation.
 
+## BlueROV2 Heavy / T200 Actuator Authority
+
+The project records a BlueROV2 Heavy-style authority model with 8 total T200
+thrusters: 4 horizontal/vectored thrusters and 4 vertical thrusters. This is a
+first-order authority grouping, not a verified real motor-order map.
+
+Horizontal current compensation should be reasoned about using the 4
+horizontal/vectored thrusters, not the raw sum of all 8 thrusters. Vertical
+altitude control should be reasoned about using the 4 vertical thrusters. The
+8-thruster summed value is retained only as a raw aggregate and must not be
+interpreted as thrust along one vehicle axis.
+
+Existing HoloOcean `max_thruster_command` values are software/simulator command
+limits. The T200 model provides real thrust references from official Blue
+Robotics data, but it does not automatically calibrate HoloOcean command units
+to Newtons. Actual surge, sway, yaw, and heave authority still depends on
+thruster geometry, allocation, drag, battery voltage, ESC limits, vehicle
+attitude, and HoloOcean dynamics.
+
+This model is for authority analysis and future calibration. It does not change
+Step 2C controller behavior and does not change HoloOcean mixer behavior.
+
 ## Step 3 Altitude Hold
 
 Step 3 combines DVL horizontal tracking with PingAltimeter altitude hold. The

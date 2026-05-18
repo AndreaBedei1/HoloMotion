@@ -31,6 +31,9 @@ Step 2C live runs add PI command metadata, saturation metrics, and the same
 distance / velocity / command plots. Step 2C comparison runs add target-reached
 rate and saturation summary plots.
 
+Step 2C `saturation_fraction` and `sway_saturation_fraction` are saturation
+relative to software command limits, not verified physical T200 saturation.
+
 Step 3 live runs write `trajectory.csv`, `summary.json`, and
 `run_config.yaml`. Step 3 batches write `summary.csv`,
 `aggregate_by_condition.csv`, `metadata.json`, `metadata.yaml`, `logs.txt`, and

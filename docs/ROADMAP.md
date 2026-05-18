@@ -33,9 +33,13 @@
 
 ## Proposed Next Steps
 
-1. Finish uniform Step 2B / Step 2C full batch comparison at `--max-duration 120`.
-2. Analyze Step 3B full OpenWater hole runs.
-3. Optionally improve the Step 3 altitude controller after reviewing P-only results.
-4. Step 4: combine Step 2C horizontal PI compensation with Step 3 / Step 3B altitude hold.
-5. Add future EKF and A-to-B navigation.
-6. Add a future real BlueROV2 ArduSub/MAVLink backend that sends body-axis commands.
+1. Step 2D: BlueROV2 Heavy / T200 actuator-authority sweep.
+   Purpose: determine whether `current_y=2.0` failure is caused by conservative
+   software limits, mixer allocation, drag/dynamics, or true vehicle authority
+   limitations.
+2. Finish uniform Step 2B / Step 2C full batch comparison at `--max-duration 120`.
+3. Analyze Step 3B full OpenWater hole runs.
+4. Optionally improve the Step 3 altitude controller after reviewing P-only results.
+5. Step 4: combine Step 2C horizontal PI compensation with Step 3 / Step 3B altitude hold.
+6. Add future EKF and A-to-B navigation.
+7. Add a future real BlueROV2 ArduSub/MAVLink backend that sends body-axis commands.
